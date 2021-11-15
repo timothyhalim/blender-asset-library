@@ -1,7 +1,7 @@
 import os
 import json
 from datetime import datetime
-from .image_reader import PNG
+from .image import IMG
 
 import bpy
 
@@ -131,7 +131,7 @@ class Asset():
                 asset.from_json(asset_data)
                 thumbnail = os.path.join(library, asset.id, asset.image_file)
                 if os.path.isfile(thumbnail):
-                    asset.thumbnail = PNG(thumbnail)
+                    asset.thumbnail = IMG(thumbnail)
                 lib.append(asset)
                 
         return lib

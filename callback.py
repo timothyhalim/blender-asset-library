@@ -98,7 +98,7 @@ def draw_callback_2d(self, context):
                 14
             )
 
-    if ui.drag or (ui.hover_on.isdigit() and ui.click):
+    if (ui.drag and ui.click_on.isdigit()):
         screen_draw.draw_image(
             globals.CURSOR_GRAB,
             ui.pointer.x, ui.pointer.y-20, 

@@ -81,6 +81,7 @@ def reset_action():
     
     browser.active_asset_index = -1
     browser.click = False
+    browser.click_on = ""
     browser.click_pos = [0, 0]
 
     browser.drag = False
@@ -99,6 +100,7 @@ def reset_library_properties():
     browser.open = False
     browser.asset_page = 0
     browser.tooltip = ''
+    browser.query = ""
     reset_action()
 
 
@@ -129,6 +131,7 @@ class AssetLibraryBrowser(PropertyGroup):
     pointer: FloatVectorProperty(name="Cursor Pos", default=(0,0), subtype="COORDINATES", size=2, update=check_pointer)
     click: BoolProperty(name="Mouse Clicked", default=False)
     click_pos: FloatVectorProperty(name="Click Pos", default=(0,0), subtype="COORDINATES", size=2)
+    click_on: StringProperty(name="Click On", default="")
 
     hover_on: StringProperty(name="Hover on widget", default="")
     hover_object: StringProperty(name="Hover on Object")

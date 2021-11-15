@@ -10,7 +10,7 @@ from . import properties
 from . import utils
 from . import globals
 from .asset import Asset
-from .image_reader import PNG
+from .image import IMG
 reload(properties)
 reload(callback)
 reload(utils)
@@ -31,9 +31,11 @@ class Library_PT_AssetImport(Library_PT_BasePanel):
     def draw(self, context):
         ui = context.window_manager.asset_browser
         layout = self.layout
-        layout.prop(ui, 'open')
         if not ui.initialized:
             layout.operator(Library_OT_Panel.bl_idname)
+        else:
+            layout.prop(ui, "open", text="Library", icon='HIDE_OFF' if ui.open else "HIDE_ON")
+            layout.prop(ui, "query", text="", icon='VIEWZOOM')
 
 def Library_Header_Draw(self, context):
     '''Top bar menu in 3D view'''
@@ -44,7 +46,7 @@ def Library_Header_Draw(self, context):
         layout.separator_spacer()
 
     if not ui.initialized:
-        layout.operator(Library_OT_Panel.bl_idname, text="Start")
+        layout.operator(Library_OT_Panel.bl_idname, text="Start Asset Library", icon="HIDE_ON")
     else:
         layout.prop(ui, "query", text="", icon='VIEWZOOM')
         layout.prop(ui, "open", text="", icon='HIDE_OFF' if ui.open else "HIDE_ON")
@@ -92,22 +94,19 @@ class Library_OT_Panel(Operator):
             print("Refresh")
             ui.library["assets"] = Asset.get_library()
 
-        if event.type in list("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):
+        if event.type in list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")+["SPACE"]:
             if ui.hover_on.isdigit():
-                if time.time() - globals.LAST_KEY_TIME > 0.1 \
-                and globals.LAST_KEY_INPUT != event.type:
+                if time.time() - globals.LAST_KEY_TIME > 0.2:
                     globals.LAST_KEY_TIME = time.time()
-                    globals.LAST_KEY_INPUT = event.type
 
-                    ui.query += event.type
+                    ui.query += " " if event.type == "SPACE" else event.type
 
                 return {"RUNNING_MODAL"}
 
         if event.type in ["BACK_SPACE"]:
             if ui.hover_on.isdigit():
-                if time.time() - globals.LAST_KEY_TIME > 0.1:
+                if time.time() - globals.LAST_KEY_TIME > 0.2:
                     globals.LAST_KEY_TIME = time.time()
-                    globals.LAST_KEY_INPUT = event.type
                     ui.query = ui.query[:-1]
                 return {"RUNNING_MODAL"}
 
@@ -119,6 +118,7 @@ class Library_OT_Panel(Operator):
                     event.mouse_region_x,
                     event.mouse_region_y
                 ]
+                ui.click_on = ui.hover_on
                 context.area.tag_redraw()
 
                 return {"PASS_THROUGH"}
@@ -131,7 +131,7 @@ class Library_OT_Panel(Operator):
                             if ui.hover_object:
                                 o = bpy.data.objects.get(ui.hover_object, None)
                                 print(o)
-
+                                
                 if ui.hover_on == "HANDLE":
                     ui.open = not(ui.open)
                                 
@@ -150,7 +150,7 @@ class Library_OT_Panel(Operator):
         
         if event.type == 'MOUSEMOVE':
             if (ui.hover_on.isdigit() and ui.open) \
-            or ui.drag:
+            or (ui.drag and ui.click_on.isdigit()):
                 context.window.cursor_set("NONE")
             else:
                 context.window.cursor_set("DEFAULT")
@@ -195,9 +195,9 @@ def startup():
     print(bpy.context.scene)
     import os
     if globals.CURSOR_HAND is None:
-        globals.CURSOR_HAND = PNG(os.path.join(__file__, "..", "resource", "Hand.png"))
+        globals.CURSOR_HAND = IMG(os.path.join(__file__, "..", "resource", "Hand.png"))
     if globals.CURSOR_GRAB is None:
-        globals.CURSOR_GRAB = PNG(os.path.join(__file__, "..", "resource", "Grab.png"))
+        globals.CURSOR_GRAB = IMG(os.path.join(__file__, "..", "resource", "Grab.png"))
 
 def register():
     register_class(Library_OT_Panel)
@@ -206,7 +206,7 @@ def register():
 
     # Run on startup
     from threading import Timer
-    Timer(1, startup, ()).start()
+    Timer(2, startup, ()).start()
 
 def unregister():
     bpy.types.VIEW3D_MT_editor_menus.remove(Library_Header_Draw)
