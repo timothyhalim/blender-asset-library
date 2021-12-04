@@ -1,4 +1,4 @@
-from . import screen_draw
+from . import draw
 from . import utils
 import time
 
@@ -22,7 +22,7 @@ def draw_container(x, y, w, h, color, ui):
     scale = min(max(scale-offset, 0), 1)
     ui.asset_container_width = w * scale
 
-    screen_draw.draw_rect(
+    draw.rect_2d(
         x, y, ui.asset_container_width, h, 
         color
     )
@@ -58,33 +58,33 @@ def draw_callback_2d(self, context):
         space_left = thumb + (x + handle + ui.asset_container_width) \
                    - (pos_x + thumb) - handle
         if pos_x + thumb > x + handle + ui.asset_container_width - handle:
-            screen_draw.draw_rect(pos_x, y, space_left, thumb, normal)
-            screen_draw.draw_image(
+            draw.rect_2d(pos_x, y, space_left, thumb, normal)
+            draw.image(
                 asset.thumbnail, pos_x, y, space_left, 
                 thumb, crop=(0,0,space_left/thumb, 1)
             )
             break
         
-        screen_draw.draw_rect(
+        draw.rect_2d(
             pos_x, y, thumb, thumb, 
             hover if ui.hover_on == str(i+ui.asset_page) else normal
         )
         if ui.hover_on == str(i+ui.asset_page):
             continue
 
-        screen_draw.draw_image(asset.thumbnail, pos_x, y, thumb, thumb)
+        draw.image(asset.thumbnail, pos_x, y, thumb, thumb)
         for _ in range(3):
-            screen_draw.draw_text(asset.name, pos_x+5, y+7, int(thumb/6), color=(0,0,0,0.25))
-        screen_draw.draw_text(asset.name, pos_x+5, y+7, int(thumb/6), color=(1,1,1,0.25))
+            draw.text(asset.name, pos_x+5, y+7, int(thumb/6), color=(0,0,0,0.25))
+        draw.text(asset.name, pos_x+5, y+7, int(thumb/6), color=(1,1,1,0.25))
     
     # Draw Scrollbar 
     if ui.asset_container_width > handle\
     and asset_count < len(assets)+1: 
-        screen_draw.draw_rect(
+        draw.rect_2d(
             pos_x+space_left, y, handle, h, 
             hover if ui.hover_on == "SCROLL" else (0.1, 0.1, 0.1, 1)
         )
-        screen_draw.draw_text("▼ ▼ ▼", pos_x+space_left+handle-5, y+5, handle-6, rotation=90)
+        draw.text("▼ ▼ ▼", pos_x+space_left+handle-5, y+5, handle-6, rotation=90)
 
     # Draw Hover Asset
     # Make sure above other asset
@@ -96,19 +96,19 @@ def draw_callback_2d(self, context):
         hover_x = x+(hover_i*thumb)+handle
         thumb_scale = thumb * 1.05 
         dif = (thumb_scale - thumb)/2
-        screen_draw.draw_image(asset.thumbnail, hover_x-dif, y-dif, thumb_scale, thumb_scale)
+        draw.image(asset.thumbnail, hover_x-dif, y-dif, thumb_scale, thumb_scale)
         for _ in range(3):
-            screen_draw.draw_text(asset.name, hover_x+5, y+7, int(thumb_scale/6), color=(0,0,0,1))
-        screen_draw.draw_text(asset.name, hover_x+5, y+7, int(thumb_scale/6))
+            draw.text(asset.name, hover_x+5, y+7, int(thumb_scale/6), color=(0,0,0,1))
+        draw.text(asset.name, hover_x+5, y+7, int(thumb_scale/6))
         
 
     # Draw Handle
-    screen_draw.draw_rect(
+    draw.rect_2d(
         x, y, handle, h, 
         hover if ui.hover_on == "HANDLE" else (0.1, 0.1, 0.1, 1)
     )
-    screen_draw.draw_text("<" if ui.open else ">", x+handle/3, y+h-15, handle-6)
-    screen_draw.draw_text("Asset", x+handle-5, y+5, handle-6, rotation=90)
+    draw.text("<" if ui.open else ">", x+handle/3, y+h-15, handle-6)
+    draw.text("Asset", x+handle-5, y+5, handle-6, rotation=90)
 
     # Draw Drag
     if ui.drag and ui.active_asset_index >= 0 :
@@ -117,7 +117,7 @@ def draw_callback_2d(self, context):
         asset = ui.library["assets"][ui.active_asset_index]
         if asset.type in ["Material"]:
             # Asset Thumbnail
-            screen_draw.draw_image(
+            draw.image(
                 asset.thumbnail,
                 mouse.x+20, mouse.y-drag_icon_size-1,
                 drag_icon_size, drag_icon_size
@@ -125,12 +125,12 @@ def draw_callback_2d(self, context):
 
             # Asset Name
             for i in range(3):
-                screen_draw.draw_text(
+                draw.text(
                     asset.name, 
                     mouse.x+20+drag_icon_size, mouse.y-drag_icon_size+6, 
                     12, color=(0,0,0,1)
                 )
-            screen_draw.draw_text(
+            draw.text(
                 asset.name, 
                 mouse.x+20+drag_icon_size, mouse.y-drag_icon_size+6, 
                 12
@@ -138,27 +138,27 @@ def draw_callback_2d(self, context):
             
             # Hover Object
             for i in range(3):
-                screen_draw.draw_text(
+                draw.text(
                     ui.hover_object, 
                     mouse.x, mouse.y+5, 
                     12, color=(0,0,0,1)
                 )
-            screen_draw.draw_text(
+            draw.text(
                 ui.hover_object, 
                 mouse.x, mouse.y+5, 
                 12
             )
 
     if (ui.drag or ui.click) and ui.click_on.isdigit():
-        screen_draw.draw_image(
-            ui.cursor["grab"],
+        draw.image(
+            ui.icons["grab"],
             ui.pointer.x, ui.pointer.y-20, 
             20, 20
         )
     elif ui.open:
         if ui.hover_on.isdigit():
-            screen_draw.draw_image(
-                ui.cursor["hand"],
+            draw.image(
+                ui.icons["hand"],
                 ui.pointer.x, ui.pointer.y-20, 
                 20, 20
             )
@@ -169,4 +169,4 @@ def draw_callback_3d(self, context):
     if ui.drag and ui.active_asset_index >= 0 :
         asset = ui.library["assets"][ui.active_asset_index]
         if asset.type in ["Model"]:
-            screen_draw.draw_bbox(ui.bbox_location, ui.bbox_rotation, ui.bbox_min, ui.bbox_max)
+            draw.draw_bbox(ui.bbox_location, ui.bbox_rotation, ui.bbox_min, ui.bbox_max)

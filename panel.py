@@ -1,4 +1,3 @@
-from importlib import reload
 import time
 
 from bpy.types import Panel, Operator
@@ -9,9 +8,6 @@ from . import callback
 from . import properties
 from . import utils
 from .asset import Asset
-reload(properties)
-reload(callback)
-reload(utils)
     
 class Library_PT_BasePanel(Panel):
     bl_space_type = "VIEW_3D"
@@ -92,9 +88,6 @@ class Library_OT_Panel(Operator):
             event.mouse_region_x,
             event.mouse_region_y
         ]
-        # if event.type != "TIMER":
-        #     print(event.type)
-
 
         if event.type in ["EVT_TWEAK_L", "EVT_TWEAK_M", "EVT_TWEAK_R"]:
             return {"RUNNING_MODAL"}
@@ -113,16 +106,12 @@ class Library_OT_Panel(Operator):
         if event.type in list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")+["SPACE"] \
         and event.value == 'PRESS':
             if ui.hover_on.isdigit():
-                if time.time() - ui.last_key_time > 0.2:
-                    ui.last_key_time = time.time()
-                    ui.query += " " if event.type == "SPACE" else event.type
+                ui.query += " " if event.type == "SPACE" else event.type
                 return {"RUNNING_MODAL"}
 
-        if event.type in ["BACK_SPACE"]:
+        if event.type in ["BACK_SPACE"] and event.value == 'PRESS':
             if ui.hover_on.isdigit():
-                if time.time() - ui.last_key_time > 0.2:
-                    ui.last_key_time = time.time()
-                    ui.query = ui.query[:-1]
+                ui.query = ui.query[:-1]
                 return {"RUNNING_MODAL"}
 
         if event.type == 'LEFTMOUSE':
@@ -203,7 +192,7 @@ class Library_OT_Panel(Operator):
             ui.asset_page = 0
             ui.initialized = True
             ui.open = True
-            for image in ui.cursor.values():
+            for image in ui.icons.values():
                 image.pixels = image.load()
             context.area.tag_redraw()
         return {"RUNNING_MODAL"}

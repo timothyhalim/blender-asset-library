@@ -223,8 +223,7 @@ if in_blender:
         asset_container_closing : FloatProperty(name="Asset Container Closing Width", default=-1)
 
         # Panel Interaction
-        last_key_time : StringProperty(name="Last Key Input Time")
-        cursor = {
+        icons = {
             "hand" : IMG(os.path.normpath(os.path.join(__file__, "..", "resource", "Hand.png"))),
             "grab" : IMG(os.path.normpath(os.path.join(__file__, "..", "resource", "Grab.png")))
         }

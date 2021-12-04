@@ -8,7 +8,7 @@ from gpu_extras.batch import batch_for_shader
 from bpy_extras import view3d_utils
 import math
 
-def draw_rect(x, y, width, height, color):
+def rect_2d(x, y, width, height, color):
     xmax = x + width
     ymax = y + height
     points = [[x, y],  # [x, y]
@@ -26,7 +26,7 @@ def draw_rect(x, y, width, height, color):
     bgl.glEnable(bgl.GL_BLEND)
     batch.draw(shader)
 
-def draw_line2d(x1, y1, x2, y2, width, color):
+def line_2d(x1, y1, x2, y2, width, color):
     coords = (
         (x1, y1), (x2, y2))
 
@@ -40,7 +40,7 @@ def draw_line2d(x1, y1, x2, y2, width, color):
     shader.uniform_float("color", color)
     batch.draw(shader)
 
-def draw_lines(vertices, indices, color):
+def line_3d(vertices, indices, color):
     bgl.glEnable(bgl.GL_BLEND)
 
     shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
@@ -49,14 +49,14 @@ def draw_lines(vertices, indices, color):
     shader.uniform_float("color", color)
     batch.draw(shader)
 
-def draw_rect_3d(coords, color):
+def rect_3d(coords, color):
     indices = [(0, 1, 2), (2, 3, 0)]
     shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
     batch = batch_for_shader(shader, 'TRIS', {"pos": coords}, indices=indices)
     shader.uniform_float("color", color)
     batch.draw(shader)
 
-def draw_bbox(location, rotation, bbox_min, bbox_max, progress=None, color=(0, 1, 0, 1)):
+def bbox(location, rotation, bbox_min, bbox_max, progress=None, color=(0, 1, 0, 1)):
     rotation = mathutils.Euler(rotation)
 
     smin = Vector(bbox_min)
@@ -81,7 +81,7 @@ def draw_bbox(location, rotation, bbox_min, bbox_max, progress=None, color=(0, 1
 
     lines = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5],
              [2, 6], [3, 7], [0, 8], [1, 8]]
-    draw_lines(vertices, lines, color)
+    line_3d(vertices, lines, color)
     
     if progress != None:
         color = (color[0], color[1], color[2], .2)
@@ -96,9 +96,9 @@ def draw_bbox(location, rotation, bbox_min, bbox_max, progress=None, color=(0, 1
             (v2, v3, vz3, vz2),
             (v3, v0, vz0, vz3))
         for r in rects:
-            draw_rect_3d(r, color)
+            rect_3d(r, color)
 
-def draw_image(image, x=0, y=0, width=100, height=100, crop=(0, 0, 1, 1)):
+def image(image, x=0, y=0, width=100, height=100, crop=(0, 0, 1, 1)):
     if not hasattr(image, "pixels"): return
     if not hasattr(image, "id"): image.generate_buffer()
     if hasattr(image, "id"): 
@@ -134,7 +134,7 @@ def draw_image(image, x=0, y=0, width=100, height=100, crop=(0, 0, 1, 1)):
 
         bgl.glDisable(bgl.GL_TEXTURE_2D)
 
-def draw_text(text, x, y, size, rotation=0, color=(1, 1, 1, 1), ralign = False):
+def text(text, x, y, size, rotation=0, color=(1, 1, 1, 1), ralign = False):
     font_id = 1
     rotation = (rotation/360) * (2 * 22.0/7) 
 

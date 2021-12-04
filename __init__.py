@@ -4,7 +4,7 @@ bl_info = {
     "description" : "",
     "blender" : (2, 80, 0),
     "version" : (0, 0, 1),
-    "location": "View3D > Properties > Asset Library New",
+    "location": "View3D > Properties > Asset Library",
     "warning" : "",
     "category" : "3D View"
 }
