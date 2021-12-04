@@ -18,7 +18,6 @@ if sys.modules.get("bpy"):
                         )
     from bpy.utils import register_class, unregister_class
     from . import utils
-    from . import screen_draw
     
 from .image import IMG
 
@@ -98,7 +97,7 @@ def cursor_move_callback(self, context):
     self.hover_on = hover
     if self.drag:
         hit, location, normal, rotation, \
-        face_index, object, matrix = screen_draw.mouse_raycast(
+        face_index, object, matrix = utils.mouse_raycast(
             context, self.pointer.x, self.pointer.y
         )
         
