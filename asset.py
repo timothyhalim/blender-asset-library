@@ -114,10 +114,6 @@ class Asset():
             with open(json_file, "w") as f:
                 f.write(json.dumps(self.jsonfiy(), indent=4))
 
-    def update_thumbnail(self, image):
-        print("Update", self)
-        self.thumbnail = image
-
     @staticmethod
     def get_library():
         import bpy # Imported here so it didn't cause error on multiprocessing

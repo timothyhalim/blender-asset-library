@@ -203,14 +203,14 @@ class Library_OT_Panel(Operator):
             ui.asset_page = 0
             ui.initialized = True
             ui.open = True
+            for image in ui.cursor.values():
+                image.pixels = image.load()
             context.area.tag_redraw()
         return {"RUNNING_MODAL"}
         
     def execute(self, context):
         print("EXECUTE")
         return {'RUNNING_MODAL'}
-
-
 
 def startup():
     context = bpy.context.copy()

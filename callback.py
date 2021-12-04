@@ -45,7 +45,7 @@ def draw_callback_2d(self, context):
     
     # Draw Asset Thumbnails
 
-    assets = ui.library["visible"]
+    assets = ui.library["assets"][ui.asset_page:]
     
     asset_count = int(ui.asset_container_width / thumb) \
                 + int((ui.asset_container_width / thumb) % 1 > 0)

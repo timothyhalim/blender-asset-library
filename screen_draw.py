@@ -98,41 +98,41 @@ def draw_bbox(location, rotation, bbox_min, bbox_max, progress=None, color=(0, 1
         for r in rects:
             draw_rect_3d(r, color)
 
-def draw_image(image, x=0, y=0, width=100, height=100, crop=(0, 0, 1, 1)):    
-    if not hasattr(image, "id"):
-        return
-        
-    coords = [
-        (x, y), (x + width, y),
-        (x, y + height), (x + width, y + height)]
+def draw_image(image, x=0, y=0, width=100, height=100, crop=(0, 0, 1, 1)):
+    if not hasattr(image, "pixels"): return
+    if not hasattr(image, "id"): image.generate_buffer()
+    if hasattr(image, "id"): 
+        coords = [
+            (x, y), (x + width, y),
+            (x, y + height), (x + width, y + height)]
 
-    uvs = [(crop[0], crop[1]),
-           (crop[2], crop[1]),
-           (crop[0], crop[3]),
-           (crop[2], crop[3]),
-           ]
+        uvs = [(crop[0], crop[1]),
+            (crop[2], crop[1]),
+            (crop[0], crop[3]),
+            (crop[2], crop[3]),
+            ]
 
-    indices = [(0, 1, 2), (2, 1, 3)]
+        indices = [(0, 1, 2), (2, 1, 3)]
 
-    shader = gpu.shader.from_builtin('2D_IMAGE')
-    batch = batch_for_shader(shader, 'TRIS',
-                             {"pos": coords,
-                              "texCoord": uvs},
-                             indices=indices)
+        shader = gpu.shader.from_builtin('2D_IMAGE')
+        batch = batch_for_shader(shader, 'TRIS',
+                                {"pos": coords,
+                                "texCoord": uvs},
+                                indices=indices)
 
-    # in case someone disabled it before
-    bgl.glEnable(bgl.GL_BLEND)
+        # in case someone disabled it before
+        bgl.glEnable(bgl.GL_BLEND)
 
-    # bind texture to image unit 0
-    bgl.glActiveTexture(bgl.GL_TEXTURE0)
-    bgl.glBindTexture(bgl.GL_TEXTURE_2D, image.id.to_list()[0])
+        # bind texture to image unit 0
+        bgl.glActiveTexture(bgl.GL_TEXTURE0)
+        bgl.glBindTexture(bgl.GL_TEXTURE_2D, image.id.to_list()[0])
 
-    shader.bind()
-    # tell shader to use the image that is bound to image unit 0
-    shader.uniform_int("image", 0)
-    batch.draw(shader)
+        shader.bind()
+        # tell shader to use the image that is bound to image unit 0
+        shader.uniform_int("image", 0)
+        batch.draw(shader)
 
-    bgl.glDisable(bgl.GL_TEXTURE_2D)
+        bgl.glDisable(bgl.GL_TEXTURE_2D)
 
 def draw_text(text, x, y, size, rotation=0, color=(1, 1, 1, 1), ralign = False):
     font_id = 1

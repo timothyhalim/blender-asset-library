@@ -22,17 +22,11 @@ if sys.modules.get("bpy"):
     
 from .image import IMG
 
-def load_thumbnail(asset, shared_data):
-    global data
-    image = asset.thumbnail
-    if not image.loaded and not image.is_loading:
-        image.load()
-    data["visible"].append(asset)
-    return asset
+def print_error(error):
+    print(error)
 
-def init_pool(local_data):
-    global data
-    data = local_data
+def load_thumbnail(image, data):
+    data.value += image.load()
 
 def asset_page_callback(self, context):
     if self.asset_page >= 0 :
@@ -40,19 +34,24 @@ def asset_page_callback(self, context):
         asset_count = int(self.asset_container_width / thumb) \
                     + int((self.asset_container_width / thumb) % 1 > 0)
         assets = self.library["assets"][self.asset_page:self.asset_page+asset_count+1]
-        self.library["visible"] = []
-        start = time.time()
-        manager = Manager()
-        pool = Pool(initializer=init_pool(self.library))
-        shared_data = manager.list()
-        for asset in assets:
-            pool.apply_async(load_thumbnail, args = (asset, shared_data))
-        pool.close()
-        pool.join()
-        print(f"Processed in {time.time() - start} secs")
+        images = [asset.thumbnail for asset in assets 
+                  if not asset.thumbnail.loaded 
+                  and not asset.thumbnail.is_loading]
         
-        self.library["visible"].extend(shared_data)
-    
+        if images:
+            start = time.time()
+            
+            manager = Manager()
+            pool = Pool()
+            for image in images:
+                image.pixels = manager.Value('i', [])
+                image.is_loading = True
+                image.loaded = False
+                pool.apply_async(load_thumbnail, args=(image, image.pixels), error_callback=print_error) 
+            pool.close()
+        
+            print(f"Processed in {time.time() - start} secs")
+        
 
 def cursor_move_callback(self, context):
     x, y = self.asset_container_pos
@@ -234,7 +233,7 @@ if in_blender:
         asset_hover_index : IntProperty(name="Asset Hover Index", default=0)
         asset_page : IntProperty(name="Asset Library Page", default=-1, update=asset_page_callback)
         active_asset_index : IntProperty(name="Active Asset Index", default=-1)
-        library = {"assets":[], "current":None, "visible":[]}
+        library = {"assets":[], "current":None}
 
 
     class AssetLibraryPreference(AddonPreferences):
