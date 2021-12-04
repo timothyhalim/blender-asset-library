@@ -8,9 +8,7 @@ import bpy
 from . import callback
 from . import properties
 from . import utils
-from . import globals
 from .asset import Asset
-from .image import IMG
 reload(properties)
 reload(callback)
 reload(utils)
@@ -32,11 +30,26 @@ class Library_PT_AssetImport(Library_PT_BasePanel):
         ui = context.window_manager.asset_browser
         layout = self.layout
         if not ui.initialized:
-            layout.operator(Library_OT_Panel.bl_idname)
+            layout.operator(Library_OT_Panel.bl_idname, text="ASSET LIBRARY", icon="BOOKMARKS")
         else:
             layout.prop(ui, "open", text="Library", icon='HIDE_OFF' if ui.open else "HIDE_ON")
             layout.prop(ui, "query", text="", icon='VIEWZOOM')
 
+class Library_PT_Settings(Library_PT_BasePanel):
+    bl_label = "Appearance"
+    bl_idname = "Library_PT_Settings"
+
+    def draw(self, context):
+        ui = context.window_manager.asset_browser
+        layout = self.layout
+        layout.prop(ui, 'asset_handle_width', text="Handle")
+        layout.prop(ui, 'asset_thumbnail_size', text="Thumbnail")
+        layout.prop(ui, 'asset_container_max_width', text="Width")
+        layout.prop(ui, 'asset_container_pos', text="Position")
+        layout.prop(ui, 'asset_container_color', text="BG Color")
+        layout.prop(ui, 'asset_container_color_hover', text="Hover Color")
+        layout.prop(ui, 'asset_container_anim_duration', text="Scroll Duration")
+    
 def Library_Header_Draw(self, context):
     '''Top bar menu in 3D view'''
     layout = self.layout
@@ -46,7 +59,7 @@ def Library_Header_Draw(self, context):
         layout.separator_spacer()
 
     if not ui.initialized:
-        layout.operator(Library_OT_Panel.bl_idname, text="Start Asset Library", icon="HIDE_ON")
+        layout.operator(Library_OT_Panel.bl_idname, text="ASSET LIBRARY", icon="BOOKMARKS")
     else:
         layout.prop(ui, "query", text="", icon='VIEWZOOM')
         layout.prop(ui, "open", text="", icon='HIDE_OFF' if ui.open else "HIDE_ON")
@@ -82,31 +95,33 @@ class Library_OT_Panel(Operator):
         # if event.type != "TIMER":
         #     print(event.type)
 
+
         if event.type in ["EVT_TWEAK_L", "EVT_TWEAK_M", "EVT_TWEAK_R"]:
             return {"RUNNING_MODAL"}
 
-        if event.type == "ESC":
+        if not ui.initialized \
+        or (event.type == "ESC" and event.value == 'PRESS'):
             print("ESC")
             self.exit_modal(context)
             return {"FINISHED"}
 
-        if event.type == "F5":
+        if event.type == "F5"\
+        and event.value == 'PRESS':
             print("Refresh")
             ui.library["assets"] = Asset.get_library()
 
-        if event.type in list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")+["SPACE"]:
+        if event.type in list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")+["SPACE"] \
+        and event.value == 'PRESS':
             if ui.hover_on.isdigit():
-                if time.time() - globals.LAST_KEY_TIME > 0.2:
-                    globals.LAST_KEY_TIME = time.time()
-
+                if time.time() - ui.last_key_time > 0.2:
+                    ui.last_key_time = time.time()
                     ui.query += " " if event.type == "SPACE" else event.type
-
                 return {"RUNNING_MODAL"}
 
         if event.type in ["BACK_SPACE"]:
             if ui.hover_on.isdigit():
-                if time.time() - globals.LAST_KEY_TIME > 0.2:
-                    globals.LAST_KEY_TIME = time.time()
+                if time.time() - ui.last_key_time > 0.2:
+                    ui.last_key_time = time.time()
                     ui.query = ui.query[:-1]
                 return {"RUNNING_MODAL"}
 
@@ -120,7 +135,8 @@ class Library_OT_Panel(Operator):
                 ]
                 ui.click_on = ui.hover_on
                 context.area.tag_redraw()
-
+                if ui.click_on == "HANDLE":
+                    ui.asset_handle_click_pos = ui.click_pos-ui.asset_container_pos
                 return {"PASS_THROUGH"}
 
             elif event.value == 'RELEASE':
@@ -133,7 +149,10 @@ class Library_OT_Panel(Operator):
                                 print(o)
                                 
                 if ui.hover_on == "HANDLE":
-                    ui.open = not(ui.open)
+                    if not ui.drag:
+                        ui.open = not(ui.open)
+                if ui.click_on == "SCROLL":
+                    ui.asset_page += 1
                                 
                 properties.reset_action()
                 context.area.tag_redraw()
@@ -149,13 +168,16 @@ class Library_OT_Panel(Operator):
                 return {"RUNNING_MODAL"}
         
         if event.type == 'MOUSEMOVE':
-            if (ui.hover_on.isdigit() and ui.open) \
-            or (ui.drag and ui.click_on.isdigit()):
+            if ui.drag and ui.click_on == "HANDLE":
+                context.window.cursor_set("SCROLL_XY")
+                ui.asset_container_pos = ui.pointer - ui.asset_handle_click_pos
+            elif (ui.hover_on.isdigit() and ui.open) \
+            or (ui.drag and (ui.click_on.isdigit())):
                 context.window.cursor_set("NONE")
             else:
                 context.window.cursor_set("DEFAULT")
 
-            if ui.click and ui.open:
+            if ui.click:
                 ui.drag_length = abs(ui.click_pos.x - ui.pointer.x) \
                                + abs(ui.click_pos.y - ui.pointer.y)
                 if ui.drag_length > 5:
@@ -178,13 +200,14 @@ class Library_OT_Panel(Operator):
             
             properties.reset_library_properties()
             context.window_manager.modal_handler_add(self)
+            ui.asset_page = 0
             ui.initialized = True
             ui.open = True
             context.area.tag_redraw()
-
         return {"RUNNING_MODAL"}
         
     def execute(self, context):
+        print("EXECUTE")
         return {'RUNNING_MODAL'}
 
 
@@ -193,15 +216,11 @@ def startup():
     context = bpy.context.copy()
     # bpy.ops.view3d.asset_library("INVOKE_DEFAULT")
     print(bpy.context.scene)
-    import os
-    if globals.CURSOR_HAND is None:
-        globals.CURSOR_HAND = IMG(os.path.join(__file__, "..", "resource", "Hand.png"))
-    if globals.CURSOR_GRAB is None:
-        globals.CURSOR_GRAB = IMG(os.path.join(__file__, "..", "resource", "Grab.png"))
 
 def register():
     register_class(Library_OT_Panel)
     register_class(Library_PT_AssetImport)
+    register_class(Library_PT_Settings)
     bpy.types.VIEW3D_MT_editor_menus.append(Library_Header_Draw)
 
     # Run on startup
@@ -209,7 +228,15 @@ def register():
     Timer(2, startup, ()).start()
 
 def unregister():
+    try:
+        ui = bpy.context.window_manager.asset_browser
+        ui.initialized = False
+        time.sleep(0.5)
+    except:
+        pass  
+    
     bpy.types.VIEW3D_MT_editor_menus.remove(Library_Header_Draw)
     unregister_class(Library_OT_Panel)
     unregister_class(Library_PT_AssetImport)
+    unregister_class(Library_PT_Settings)
     

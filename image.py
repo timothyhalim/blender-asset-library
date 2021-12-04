@@ -1,5 +1,17 @@
-import bgl
-from .PIL import Image
+import os
+
+try:
+    import bgl
+except:
+    pass
+try:
+    from .PIL import Image
+except:
+    import sys
+    mod = os.path.join(os.path.dirname(__file__), "PIL")
+    if not mod in sys.path:
+        sys.path.append(mod)
+    from PIL import Image
 
 class IMG():
     gamma = 2.2
@@ -9,11 +21,24 @@ class IMG():
         self.width, self.height = self.image.size
         self.channels = len(self.image.getbands())
         self.depth = self.image.mode
+        self.pixels = []
+        self.loaded = False
+        self.is_loading = False
+        
+    def __repr__(self):
+        return os.path.basename(self.file_path)
+        
+    def load(self):
         self.pixels = list(self.image.getdata())
-        self.flip_vertical()
-
+        return self.pixels
+        
     def generate_buffer(self):
+        self.is_loading = True
+        
         self.id = bgl.Buffer(bgl.GL_INT, [1])
+        if not hasattr(self, "pixels"):
+            self.load()
+        self.flip_vertical()
 
         bgl.glGenTextures(1, self.id)
         bgl.glBindTexture(bgl.GL_TEXTURE_2D, self.id.to_list()[0])
@@ -23,7 +48,10 @@ class IMG():
         bgl.glTexImage2D(bgl.GL_TEXTURE_2D, 0, bgl.GL_RGBA, self.width, self.height, 0, bgl.GL_RGBA, bgl.GL_FLOAT, self.buffer)
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_NEAREST)
         bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
-
+        
+        self.loaded = True
+        self.is_loading = False
+        
     def build_array(self):
         rows = []
         row = []

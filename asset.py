@@ -3,8 +3,6 @@ import json
 from datetime import datetime
 from .image import IMG
 
-import bpy
-
 DATETIMEFORM = "%Y/%m/%d %H:%M:%S"
 
 MATERIAL_TEMPLATE = os.path.normpath(os.path.join(__file__, "..", "template", "Material.blend"))
@@ -116,8 +114,14 @@ class Asset():
             with open(json_file, "w") as f:
                 f.write(json.dumps(self.jsonfiy(), indent=4))
 
+    def update_thumbnail(self, image):
+        print("Update", self)
+        self.thumbnail = image
+
     @staticmethod
     def get_library():
+        import bpy # Imported here so it didn't cause error on multiprocessing
+        
         lib = []
         
         preferences = bpy.context.preferences

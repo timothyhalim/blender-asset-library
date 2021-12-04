@@ -9,10 +9,14 @@ bl_info = {
     "category" : "3D View"
 }
 
-module_names = [ 'operator', 'properties', 'panel' ]
 
 import sys
 import importlib
+in_blender = False
+if sys.modules.get("bpy"):
+    in_blender = True
+    
+module_names = [ 'properties', 'panel' ] if in_blender else []
 
 module_full_names = [ f"{__name__}.{module}" for module in module_names ]
 

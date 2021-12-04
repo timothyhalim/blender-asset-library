@@ -1,38 +1,86 @@
-
 import os.path
-import bpy
-from bpy.types import PropertyGroup, WindowManager, AddonPreferences
-from bpy.props import (StringProperty,
-                       BoolProperty,
-                       PointerProperty,
-                       EnumProperty,
-                       FloatVectorProperty,
-                       IntProperty
-                       )
-from bpy.utils import previews, register_class, unregister_class
-from . import globals
-from . import utils
-from . import screen_draw
+import sys
 import time
-import math
+from multiprocessing import Pool, Manager
 
-def check_pointer(self, context):
-    x, y, w, h = globals.CONTAINER_SIZE
+in_blender = False
+if sys.modules.get("bpy"):
+    in_blender = True
+    import bpy
+    from bpy.types import PropertyGroup, WindowManager, AddonPreferences
+    from bpy.props import (StringProperty,
+                        BoolProperty,
+                        PointerProperty,
+                        EnumProperty,
+                        FloatVectorProperty,
+                        IntProperty,
+                        FloatProperty
+                        )
+    from bpy.utils import register_class, unregister_class
+    from . import utils
+    from . import screen_draw
+    
+from .image import IMG
 
-    ha = (x, y, x+globals.HANDLE_WIDTH, y+h)
-    ca = (ha[0]+globals.HANDLE_WIDTH, ha[1], ha[2]+w, ha[3])
+def load_thumbnail(asset, shared_data):
+    global data
+    image = asset.thumbnail
+    if not image.loaded and not image.is_loading:
+        image.load()
+    data["visible"].append(asset)
+    return asset
+
+def init_pool(local_data):
+    global data
+    data = local_data
+
+def asset_page_callback(self, context):
+    if self.asset_page >= 0 :
+        thumb = self.asset_thumbnail_size
+        asset_count = int(self.asset_container_width / thumb) \
+                    + int((self.asset_container_width / thumb) % 1 > 0)
+        assets = self.library["assets"][self.asset_page:self.asset_page+asset_count+1]
+        self.library["visible"] = []
+        start = time.time()
+        manager = Manager()
+        pool = Pool(initializer=init_pool(self.library))
+        shared_data = manager.list()
+        for asset in assets:
+            pool.apply_async(load_thumbnail, args = (asset, shared_data))
+        pool.close()
+        pool.join()
+        print(f"Processed in {time.time() - start} secs")
+        
+        self.library["visible"].extend(shared_data)
+    
+
+def cursor_move_callback(self, context):
+    x, y = self.asset_container_pos
+    w, h = self.asset_container_width, self.asset_thumbnail_size
+    handle = self.asset_handle_width
+    thumb = self.asset_thumbnail_size
+
+    ha = (x, y, x+handle, y+h)
+    ca = (ha[0]+handle, ha[1], ha[2]+w, ha[3])
 
     # Hover over handle
     if self.pointer.x >= ha[0] and self.pointer.x <= ha[2] \
     and self.pointer.y >= ha[1] and self.pointer.y <= ha[3]:
         hover = "HANDLE"
 
+    # Hover over Scroll
+    elif self.pointer.x >= ca[2]-(handle*2) and self.pointer.x <= ca[2] \
+    and self.pointer.y >= ha[1] and self.pointer.y <= ha[3]:
+        hover = "SCROLL"
+
     # Hover over Asset
     elif self.pointer.x >= ca[0] and self.pointer.x <= ca[2] \
     and self.pointer.y >= ca[1] and self.pointer.y <= ca[3]:
-        asset_index = math.floor((self.pointer.x-ca[0]) / globals.THUMBNAIL_SIZE) + self.asset_page
-        globals.CURRENT_ASSET_INDEX = int(asset_index)
-        hover = str(globals.CURRENT_ASSET_INDEX)
+        asset_index = int((self.pointer.x-ca[0]) / thumb) + self.asset_page
+        if asset_index > len(self.library["assets"])-1:
+            asset_index = "-1"
+        self.asset_hover_index = int(asset_index)
+        hover = str(self.asset_hover_index)
         if not self.drag:
             self.active_asset_index = int(asset_index)
 
@@ -47,7 +95,7 @@ def check_pointer(self, context):
     # Inside of 3d view
     else:
         hover = "INSIDE"
-
+        
     self.hover_on = hover
     if self.drag:
         hit, location, normal, rotation, \
@@ -61,25 +109,37 @@ def check_pointer(self, context):
         self.bbox_normal = normal
         self.bbox_rotation = rotation
         self.hover_object = object.name if object else ""
-
-def toggle_library(self, context):
-    globals.CONTAINER_SIZE = [globals.CONTAINER_SPACING, globals.CONTAINER_SPACING, 
-                utils.get_3d_view_size()[0]-(globals.CONTAINER_SPACING*3), globals.THUMBNAIL_SIZE]
-
-    globals.STARTING_WIDTH = globals.CONTAINER_WIDTH
-    if self.open:
-        globals.EXPAND_CLOSE = None
-        if globals.EXPAND_START is None:
-            globals.EXPAND_START = time.time()
     else:
-        globals.EXPAND_START = None
-        if globals.EXPAND_CLOSE is None:
-            globals.EXPAND_CLOSE = time.time()
+        self.bbox_location = [0,0,0]
+        self.bbox_min = [0,0,0]
+        self.bbox_max = [0,0,0]
+        self.bbox_normal = [0,0,0]
+        self.bbox_rotation = [0,0,0]
+        self.hover_object = ""
+
+def toggle_library_callback(self, context):
+    self.asset_container_starting_width = self.asset_container_width
+    current_time = float(str(time.time())[6:])
+    
+    if self.open:
+        if self.asset_container_max_width < 100:
+            self.asset_container_max_width = utils.get_3d_view_size()[0]
+            
+            for r in context.area.regions:
+                if r.type == 'UI':
+                    if r.width > 1:
+                        self.asset_container_max_width -= self.asset_handle_width
+                    break
+        self.asset_container_opening = current_time
+        self.asset_container_closing = 0
+    else:
+        self.asset_container_closing = current_time
+        self.asset_container_opening = 0
 
 def reset_action():
     browser = bpy.context.window_manager.asset_browser
     
-    browser.active_asset_index = -1
+    browser.active_asset_index = 0
     browser.click = False
     browser.click_on = ""
     browser.click_pos = [0, 0]
@@ -98,81 +158,107 @@ def reset_library_properties():
     
     browser.initialized = False
     browser.open = False
-    browser.asset_page = 0
+    browser.asset_page = -1
     browser.tooltip = ''
     browser.query = ""
     reset_action()
 
+if in_blender:
+    class AssetLibraryBrowser(PropertyGroup):
+        query : StringProperty(
+                name="Search",
+                description="Query to search",
+                default=""
+                )
 
-class AssetLibraryBrowser(PropertyGroup):
-    query : StringProperty(
-            name="Search",
-            description="Query to search",
-            default=""
-            )
+        # sort_by : EnumProperty(
+        #         name="Sort by",
+        #         items=get_sorting_options,
+        #         description="Sort ",
+        #         )
 
-    # sort_by : EnumProperty(
-    #         name="Sort by",
-    #         items=get_sorting_options,
-    #         description="Sort ",
-    #         )
+        # sort_reverse : BoolProperty(default=False)
 
-    # sort_reverse : BoolProperty(default=False)
+        tooltip: StringProperty(
+            name="Tooltip",
+            description="asset preview info",
+            default="")
 
-    tooltip: StringProperty(
-        name="Tooltip",
-        description="asset preview info",
-        default="")
+        # Toggle Drawing
+        initialized: BoolProperty(name="Library Initialized", default=False)
+        open: BoolProperty(name="Open Library", default=True, update=toggle_library_callback)
 
-    # Toggle Drawing
-    initialized: BoolProperty(name="Library Initialized", default=False)
-    open: BoolProperty(name="Open Library", default=True, update=toggle_library)
+        pointer: FloatVectorProperty(name="Cursor Pos", default=(0,0), subtype="COORDINATES", size=2, update=cursor_move_callback)
+        click: BoolProperty(name="Mouse Clicked", default=False)
+        click_pos: FloatVectorProperty(name="Click Pos", default=(0,0), subtype="COORDINATES", size=2)
+        click_on: StringProperty(name="Click On", default="")
 
-    pointer: FloatVectorProperty(name="Cursor Pos", default=(0,0), subtype="COORDINATES", size=2, update=check_pointer)
-    click: BoolProperty(name="Mouse Clicked", default=False)
-    click_pos: FloatVectorProperty(name="Click Pos", default=(0,0), subtype="COORDINATES", size=2)
-    click_on: StringProperty(name="Click On", default="")
+        hover_on: StringProperty(name="Hover on widget", default="")
+        hover_object: StringProperty(name="Hover on Object")
 
-    hover_on: StringProperty(name="Hover on widget", default="")
-    hover_object: StringProperty(name="Hover on Object")
+        # Drag draw
+        drag: BoolProperty(name="Dragging", default=False)
+        drag_length: IntProperty(name="Drag length", default=0)
 
-    # Drag draw
-    drag: BoolProperty(name="Dragging", default=False)
-    drag_length: IntProperty(name="Drag length", default=0)
+        # BBox Placement
+        bbox_location: FloatVectorProperty(name="BBox Location", default=(0, 0, 0))
+        bbox_min: FloatVectorProperty(name="BBox Min", default=(0, 0, 0))
+        bbox_max: FloatVectorProperty(name="BBox Max", default=(0, 0, 0))
+        bbox_normal: FloatVectorProperty(name="BBox Normal", default=(0, 0, 0))
+        bbox_rotation: FloatVectorProperty(name="BBox Rotation", default=(0, 0, 0), subtype='QUATERNION')
+        
+        # Appearance Settings
+        asset_handle_width : IntProperty(name="Asset Handle Width", default=20, min=20 )
+        asset_handle_click_pos : FloatVectorProperty(name="Cursor Pos", default=(0,0), subtype="COORDINATES", size=2)
+        asset_thumbnail_size : IntProperty(name="Asset Thumbnail Size", default=100, min=80 )
+        asset_container_max_width : FloatProperty(name="Asset Container Width", default=0)
+        asset_container_pos : FloatVectorProperty(name="Asset Container Position", default=(0,0), subtype="COORDINATES", size=2)
+        asset_container_color : FloatVectorProperty(name="Asset Container Color", default=(.2, .2, .2, .5), min=0, max=1, subtype="COLOR", size=4)
+        asset_container_color_hover : FloatVectorProperty(name="Asset Container Hover Color", default=(.4, .4, .4, .5), min=0, max=1, subtype="COLOR", size=4)
+        asset_container_anim_duration : FloatProperty(name="Asset Container Animation Duration in second", default=0.5)
+        
+        # Animation Data
+        asset_container_width : FloatProperty(name="Asset Container Width", default=0)
+        asset_container_starting_width : FloatProperty(name="Asset Container Starting Width", default=-1)
+        asset_container_opening : FloatProperty(name="Asset Container Opening Width", default=-1)
+        asset_container_closing : FloatProperty(name="Asset Container Closing Width", default=-1)
 
-    # BBox Placement
-    bbox_location: FloatVectorProperty(name="BBox Location", default=(0, 0, 0))
-    bbox_min: FloatVectorProperty(name="BBox Min", default=(0, 0, 0))
-    bbox_max: FloatVectorProperty(name="BBox Max", default=(0, 0, 0))
-    bbox_normal: FloatVectorProperty(name="BBox Normal", default=(0, 0, 0))
-    bbox_rotation: FloatVectorProperty(name="BBox Rotation", default=(0, 0, 0), subtype='QUATERNION')
-    
+        # Panel Interaction
+        last_key_time : StringProperty(name="Last Key Input Time")
+        cursor = {
+            "hand" : IMG(os.path.normpath(os.path.join(__file__, "..", "resource", "Hand.png"))),
+            "grab" : IMG(os.path.normpath(os.path.join(__file__, "..", "resource", "Grab.png")))
+        }
 
-    asset_page : IntProperty(name="Asset Library Page", default=0)
-    active_asset_index : IntProperty(name="Active Asset Index", default=-1)
-    library = {"assets":[], "current":None}
-    # thumbnails = previews.new()
+        # Asset 
+        asset_hover_index : IntProperty(name="Asset Hover Index", default=0)
+        asset_page : IntProperty(name="Asset Library Page", default=-1, update=asset_page_callback)
+        active_asset_index : IntProperty(name="Active Asset Index", default=-1)
+        library = {"assets":[], "current":None, "visible":[]}
 
-class AssetLibraryPreference(AddonPreferences):
-    bl_idname = __package__
 
-    library_path: StringProperty(
-        name="Library Path",
-        default=os.path.normpath(os.path.join(__file__, "..", "assets")),
-        subtype='FILE_PATH',
-    )
+    class AssetLibraryPreference(AddonPreferences):
+        bl_idname = __package__
 
-    def draw(self, context):
-        layout = self.layout
-        layout.prop(self, "library_path")
+        library_path: StringProperty(
+            name="Library Path",
+            default=os.path.normpath(os.path.join(__file__, "..", "assets")),
+            subtype='FILE_PATH',
+        )
+
+        def draw(self, context):
+            layout = self.layout
+            layout.prop(self, "library_path")
 
 def register():
-    register_class(AssetLibraryPreference)
-    register_class(AssetLibraryBrowser)
-    WindowManager.asset_browser = PointerProperty(type=AssetLibraryBrowser)
-    reset_library_properties()
+    if in_blender:
+        register_class(AssetLibraryPreference)
+        register_class(AssetLibraryBrowser)
+        WindowManager.asset_browser = PointerProperty(type=AssetLibraryBrowser)
+        reset_library_properties()
 
 def unregister():
-    del WindowManager.asset_browser
-    unregister_class(AssetLibraryBrowser)
-    unregister_class(AssetLibraryPreference)
+    if in_blender:
+        del WindowManager.asset_browser
+        unregister_class(AssetLibraryBrowser)
+        unregister_class(AssetLibraryPreference)
