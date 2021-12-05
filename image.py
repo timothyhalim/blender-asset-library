@@ -31,8 +31,9 @@ class IMG():
     def generate_buffer(self):
         if hasattr(self, "pixels"):
             if hasattr(self.pixels, "value"):
+                print(type(self.pixels))
                 self.raw_data = self.pixels.value
-            else:
+            elif isinstance(self.pixels, list):
                 self.raw_data = self.pixels
                 
             if self.raw_data:

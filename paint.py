@@ -96,7 +96,9 @@ def bbox(location, rotation, bbox_min, bbox_max, progress=None, color=(0, 1, 0, 
 
 def image(image, x=0, y=0, width=100, height=100, crop=(0, 0, 1, 1)):
     if not hasattr(image, "pixels"): return
-    if not hasattr(image, "id"): image.generate_buffer()
+    if not hasattr(image, "id"): 
+        image.generate_buffer()
+        return
     if hasattr(image, "id"): 
         coords = [
             (x, y), (x + width, y),
