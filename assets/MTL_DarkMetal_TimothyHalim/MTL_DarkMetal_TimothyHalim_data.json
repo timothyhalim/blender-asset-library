@@ -1,0 +1,28 @@
+{
+    "id": "MTL_DarkMetal_TimothyHalim",
+    "name": "Dark Metal",
+    "author": "Timothy Halim",
+    "created": "2021/11/04 13:15:48",
+    "updated": "2021/11/04 13:15:48",
+    "image_file": "MTL_DarkMetal_TimothyHalim_thumb.png",
+    "type": "Material",
+    "tags": [
+        "metal",
+        "procedural"
+    ],
+    "objects": [],
+    "collections": [],
+    "materials": [
+        "Dark_Metal_SHD"
+    ],
+    "bbox_min": [
+        0,
+        0,
+        0
+    ],
+    "bbox_max": [
+        0,
+        0,
+        0
+    ]
+}

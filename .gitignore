@@ -1,4 +1,5 @@
 __pycache__
 *.pyc
 assets/*
+!assets/MTL_DarkMetal_TimothyHalim
 *.psd
