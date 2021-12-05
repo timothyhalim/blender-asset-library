@@ -32,14 +32,12 @@ def asset_page_callback(self, context):
         thumb = self.asset_thumbnail_size
         asset_count = int(self.asset_container_width / thumb) \
                     + int((self.asset_container_width / thumb) % 1 > 0)
-        assets = self.library["assets"][self.asset_page:self.asset_page+asset_count+1]
+        assets = self.library["filtered"][self.asset_page:self.asset_page+asset_count+1]
         images = [asset.thumbnail for asset in assets 
                   if not asset.thumbnail.loaded 
                   and not asset.thumbnail.is_loading]
         
         if images:
-            start = time.time()
-            
             manager = Manager()
             pool = Pool()
             for image in images:
@@ -49,8 +47,8 @@ def asset_page_callback(self, context):
                 pool.apply_async(load_thumbnail, args=(image, image.pixels), error_callback=print_error) 
             pool.close()
         
-            print(f"Processed in {time.time() - start} secs")
-        
+def filter_asset(self, context):
+    self.library["filtered"] = [a for a in self.library["assets"] if self.query.lower() in a.name.lower()] if self.query else self.library["assets"]
 
 def cursor_move_callback(self, context):
     x, y = self.asset_container_pos
@@ -75,7 +73,7 @@ def cursor_move_callback(self, context):
     elif self.pointer.x >= ca[0] and self.pointer.x <= ca[2] \
     and self.pointer.y >= ca[1] and self.pointer.y <= ca[3]:
         asset_index = int((self.pointer.x-ca[0]) / thumb) + self.asset_page
-        if asset_index > len(self.library["assets"])-1:
+        if asset_index > len(self.library["filtered"])-1:
             asset_index = "-1"
         self.asset_hover_index = int(asset_index)
         hover = str(self.asset_hover_index)
@@ -159,6 +157,7 @@ def reset_library_properties():
     browser.asset_page = -1
     browser.tooltip = ''
     browser.query = ""
+    browser.library['filtered'] = browser.library['assets']
     reset_action()
 
 if in_blender:
@@ -166,7 +165,8 @@ if in_blender:
         query : StringProperty(
                 name="Search",
                 description="Query to search",
-                default=""
+                default="",
+                update=filter_asset
                 )
 
         # sort_by : EnumProperty(
@@ -231,7 +231,7 @@ if in_blender:
         asset_hover_index : IntProperty(name="Asset Hover Index", default=0)
         asset_page : IntProperty(name="Asset Library Page", default=-1, update=asset_page_callback)
         active_asset_index : IntProperty(name="Active Asset Index", default=-1)
-        library = {"assets":[], "current":None}
+        library = {"assets":[], "current":None, "filtered":[]}
 
 
     class AssetLibraryPreference(AddonPreferences):

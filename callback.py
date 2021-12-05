@@ -45,7 +45,7 @@ def draw_callback_2d(self, context):
     
     # Draw Asset Thumbnails
 
-    assets = ui.library["assets"][ui.asset_page:]
+    assets = ui.library["filtered"][ui.asset_page:]
     
     asset_count = int(ui.asset_container_width / thumb) \
                 + int((ui.asset_container_width / thumb) % 1 > 0)
@@ -90,9 +90,9 @@ def draw_callback_2d(self, context):
     # Make sure above other asset
     if ui.hover_on.isdigit() \
     and int(ui.hover_on) >= 0 \
-    and int(ui.hover_on) < len(ui.library["assets"]):
-        asset = ui.library["assets"][int(ui.hover_on)]
-        hover_i = ui.library["assets"].index(asset)-ui.asset_page
+    and int(ui.hover_on) < len(ui.library["filtered"]):
+        asset = ui.library["filtered"][int(ui.hover_on)]
+        hover_i = ui.library["filtered"].index(asset)-ui.asset_page
         hover_x = x+(hover_i*thumb)+handle
         thumb_scale = thumb * 1.05 
         dif = (thumb_scale - thumb)/2
@@ -114,7 +114,7 @@ def draw_callback_2d(self, context):
     if ui.drag and ui.active_asset_index >= 0 :
         drag_icon_size = 20 #thumb/3
         mouse = ui.pointer
-        asset = ui.library["assets"][ui.active_asset_index]
+        asset = ui.library["filtered"][ui.active_asset_index]
         if asset.type in ["Material"]:
             # Asset Thumbnail
             paint.image(
